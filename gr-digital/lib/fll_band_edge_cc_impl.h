@@ -41,8 +41,8 @@ namespace gr {
       std::vector<gr_complex> d_taps_lower;
       std::vector<gr_complex> d_taps_upper;
       bool		      d_updated;
-      gr::filter::kernel::fir_filter_with_buffer_ccc* d_filter_lower;
-      gr::filter::kernel::fir_filter_with_buffer_ccc* d_filter_upper;
+      gr::filter::kernel::fir_filter_with_buffer_ccc* d_filter_lower[2];
+      gr::filter::kernel::fir_filter_with_buffer_ccc* d_filter_upper[2];
 
       /*!
        * Design the band-edge filter based on the number of samples

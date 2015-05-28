@@ -51,13 +51,14 @@ namespace gr {
 				   filter_size, bandwidth));
     }
 
+    // FIXME?
     static int ios[] = {sizeof(gr_complex), sizeof(float), sizeof(float), sizeof(float)};
     static std::vector<int> iosig(ios, ios+sizeof(ios)/sizeof(int));
     fll_band_edge_cc_impl::fll_band_edge_cc_impl(float samps_per_sym, float rolloff,
 						 int filter_size, float bandwidth)
       : sync_block("fll_band_edge_cc",
-		      io_signature::make(1, 1, sizeof(gr_complex)),
-		      io_signature::makev(1, 4, iosig)),
+		      io_signature::make(1, 2, sizeof(gr_complex)),
+		      io_signature::makev(1, 5, iosig)),
 	blocks::control_loop(bandwidth, M_TWOPI*(2.0/samps_per_sym),
                                  -M_TWOPI*(2.0/samps_per_sym)),
 	d_updated(false)
@@ -86,8 +87,10 @@ namespace gr {
 
     fll_band_edge_cc_impl::~fll_band_edge_cc_impl()
     {
-      delete d_filter_upper;
-      delete d_filter_lower;
+      delete d_filter_upper[0];
+      delete d_filter_lower[0];
+      delete d_filter_upper[1];
+      delete d_filter_lower[1];
     }
 
     /*******************************************************************
@@ -191,8 +194,10 @@ namespace gr {
 
       // Set the history to ensure enough input items for each filter
       set_history(filter_size+1);
-      d_filter_upper = new gr::filter::kernel::fir_filter_with_buffer_ccc(d_taps_upper);
-      d_filter_lower = new gr::filter::kernel::fir_filter_with_buffer_ccc(d_taps_lower);
+      d_filter_upper[0] = new gr::filter::kernel::fir_filter_with_buffer_ccc(d_taps_upper);
+      d_filter_lower[0] = new gr::filter::kernel::fir_filter_with_buffer_ccc(d_taps_lower);
+      d_filter_upper[1] = new gr::filter::kernel::fir_filter_with_buffer_ccc(d_taps_upper);
+      d_filter_lower[1] = new gr::filter::kernel::fir_filter_with_buffer_ccc(d_taps_lower);
     }
 
     void
@@ -246,8 +251,8 @@ namespace gr {
 	out[i] = in[i] * nco_out;
 
 	// Perform the dot product of the output with the filters
-	out_upper = d_filter_lower->filter(out[i]);
-	out_lower = d_filter_upper->filter(out[i]);
+	out_upper = d_filter_lower[0]->filter(out[i]);
+	out_lower = d_filter_upper[0]->filter(out[i]);
 
 	error = norm(out_lower) - norm(out_upper);
 
