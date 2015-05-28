@@ -223,8 +223,14 @@ namespace gr {
 				gr_vector_const_void_star &input_items,
 				gr_vector_void_star &output_items)
     {
-      const gr_complex *in = (const gr_complex*)input_items[0];
-      gr_complex *out = (gr_complex*)output_items[0];
+      const gr_complex *in[2];
+      gr_complex *out[2];
+      in[0] = (const gr_complex*)input_items[0];
+      out[0] = (gr_complex*)output_items[0];
+      if(input_items.size() == 2) {
+	in[1] = (const gr_complex*)input_items[1];
+	out[1] = (gr_complex*)output_items[1];
+      }
 
       float *frq = NULL;
       float *phs = NULL;
@@ -233,6 +239,10 @@ namespace gr {
 	frq = (float*)output_items[1];
 	phs = (float*)output_items[2];
 	err = (float*)output_items[3];
+      } else if(output_items.size() == 5) {
+	frq = (float*)output_items[2];
+	phs = (float*)output_items[3];
+	err = (float*)output_items[4];
       }
 
       if(d_updated) {
@@ -243,24 +253,33 @@ namespace gr {
       int i;
       float error;
       gr_complex nco_out;
-      gr_complex out_upper, out_lower;
-      gr_complex out_uppersse, out_lowersse;
+      gr_complex out_upper[2], out_lower[2];
+      gr_complex out_uppersse[2], out_lowersse[2];
 
       for(i = 0; i < noutput_items; i++) {
 	nco_out = gr_expj(d_phase);
-	out[i] = in[i] * nco_out;
+	out[0][i] = in[0][i] * nco_out;
 
 	// Perform the dot product of the output with the filters
-	out_upper = d_filter_lower[0]->filter(out[i]);
-	out_lower = d_filter_upper[0]->filter(out[i]);
+	out_upper[0] = d_filter_lower[0]->filter(out[0][i]);
+	out_lower[0] = d_filter_upper[0]->filter(out[0][i]);
 
-	error = norm(out_lower) - norm(out_upper);
+	error = norm(out_lower[0]) - norm(out_upper[0]);
+
+	if(input_items.size() == 2) {
+	  out[1][i] = in[1][i] * nco_out;
+	  out_upper[1] = d_filter_lower[1]->filter(out[1][i]);
+	  out_lower[1] = d_filter_upper[1]->filter(out[1][i]);
+
+	  // Take the average
+	  error = ((norm(out_lower[0]) - norm(out_upper[0])) + (norm(out_lower[1]) - norm(out_upper[1])))/2;
+	}
 
 	advance_loop(error);
 	phase_wrap();
 	frequency_limit();
 
-	if(output_items.size() == 4) {
+	if(output_items.size() == 4 || output_items.size() == 5) {
 	  frq[i] = d_freq;
 	  phs[i] = d_phase;
 	  err[i] = error;
