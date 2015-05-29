@@ -53,8 +53,12 @@ class example_fll(gr.top_block):
         data1 = scipy.exp(1j*poffset) * data1
         print scipy.absolute (data1[:10]-data0[:10])
 
-        self.src0 = blocks.vector_source_c(data0.tolist(), False)
-        self.src1 = blocks.vector_source_c(data1.tolist(), False)
+        # MIMO channels
+        data01 = data0 + 1j*data1
+        data10 = data1 + 1j*data0
+
+        self.src0 = blocks.vector_source_c(data01.tolist(), False)
+        self.src1 = blocks.vector_source_c(data10.tolist(), False)
         self.rrc0 = filter.interp_fir_filter_ccf(sps, rrc_taps)
         self.rrc1 = filter.interp_fir_filter_ccf(sps, rrc_taps)
         self.chn0 = channels.channel_model(noise, foffset, toffset)
