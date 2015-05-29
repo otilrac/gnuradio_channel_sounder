@@ -53,7 +53,7 @@ namespace gr {
 				     osps));
     }
 
-    static int ios[] = {sizeof(gr_complex), sizeof(float), sizeof(float), sizeof(float)};
+    static int ios[] = {sizeof(gr_complex), sizeof(gr_complex), sizeof(float), sizeof(float), sizeof(float)};
     static std::vector<int> iosig(ios, ios+sizeof(ios)/sizeof(int));
     pfb_clock_sync_ccf_impl::pfb_clock_sync_ccf_impl(double sps, float loop_bw,
 						     const std::vector<float> &taps,
@@ -130,7 +130,7 @@ namespace gr {
     bool
     pfb_clock_sync_ccf_impl::check_topology(int ninputs, int noutputs)
     {
-      return noutputs == 1 || noutputs == 4;
+      return noutputs == 1 || noutputs == 4 || noutputs == 5;
     }
 
     void
@@ -425,7 +425,7 @@ namespace gr {
                         pmt::intern("time_est"));
 
       int i = 0, count = 0;
-      float error_r, error_i;
+      float error_r[2], error_i[2];
 
       // produce output as long as we can and there are enough input samples
       while(i < noutput_items) {
@@ -456,8 +456,9 @@ namespace gr {
 	    count -= 1;
 	  }
 
-	  if(input_items.size() == 1) {
-	    out[0][i+d_out_idx] = d_filters[0][d_filtnum]->filter(&in[0][count+d_out_idx]);
+	  out[0][i+d_out_idx] = d_filters[0][d_filtnum]->filter(&in[0][count+d_out_idx]);
+	  if(input_items.size() == 2) {
+	    out[1][i+d_out_idx] = d_filters[1][d_filtnum]->filter(&in[1][count+d_out_idx]);
 	  }
 	  d_k = d_k + d_rate_i + d_rate_f; // update phase
 	  d_out_idx++;
@@ -480,12 +481,16 @@ namespace gr {
 	d_out_idx = 0;
 
 	// Update the phase and rate estimates for this symbol
-	if(input_items.size() == 1) {
-	  gr_complex diff;
-	  diff = d_diff_filters[0][d_filtnum]->filter(&in[0][count]);
-	  error_r = out[0][i].real() * diff.real();
-	  error_i = out[0][i].imag() * diff.imag();
-	  d_error = (error_i + error_r) / 2.0;       // average error from I&Q channel
+	gr_complex diff[2];
+	diff[0] = d_diff_filters[0][d_filtnum]->filter(&in[0][count]);
+	error_r[0] = out[0][i].real() * diff[0].real();
+	error_i[0] = out[0][i].imag() * diff[0].imag();
+	d_error = (error_i[0] + error_r[0]) / 2.0;       // average error from I&Q channel
+	if(input_items.size() == 2) {
+	  diff[1] = d_diff_filters[1][d_filtnum]->filter(&in[1][count]);
+	  error_r[1] = out[1][i].real() * diff[1].real();
+	  error_i[1] = out[1][i].imag() * diff[1].imag();
+	  d_error = (error_i[0] + error_r[0] + error_i[1] + error_r[1]) / 4.0;
 	}
 
         // Run the control loop to update the current phase (k) and
