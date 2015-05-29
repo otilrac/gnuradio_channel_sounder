@@ -62,8 +62,8 @@ namespace gr {
 						     float max_rate_deviation,
 						     int osps)
       : block("pfb_clock_sync_ccf",
-		  io_signature::make(1, 1, sizeof(gr_complex)),
-		  io_signature::makev(1, 4, iosig)),
+		  io_signature::make(1, 2, sizeof(gr_complex)),
+		  io_signature::makev(1, 5, iosig)),
 	d_updated(false), d_nfilters(filter_size),
 	d_max_dev(max_rate_deviation),
 	d_osps(osps), d_error(0), d_out_idx(0)
@@ -92,21 +92,27 @@ namespace gr {
       d_rate_f = d_rate - (float)d_rate_i;
       d_filtnum = (int)floor(d_k);
 
-      d_filters = std::vector<kernel::fir_filter_ccf*>(d_nfilters);
-      d_diff_filters = std::vector<kernel::fir_filter_ccf*>(d_nfilters);
+      d_filters[0] = std::vector<kernel::fir_filter_ccf*>(d_nfilters);
+      d_diff_filters[0] = std::vector<kernel::fir_filter_ccf*>(d_nfilters);
+      d_filters[1] = std::vector<kernel::fir_filter_ccf*>(d_nfilters);
+      d_diff_filters[1] = std::vector<kernel::fir_filter_ccf*>(d_nfilters);
 
       // Create an FIR filter for each channel and zero out the taps
       std::vector<float> vtaps(1,0);
       for(int i = 0; i < d_nfilters; i++) {
-	d_filters[i] = new kernel::fir_filter_ccf(1, vtaps);
-	d_diff_filters[i] = new kernel::fir_filter_ccf(1, vtaps);
+	d_filters[0][i] = new kernel::fir_filter_ccf(1, vtaps);
+	d_diff_filters[0][i] = new kernel::fir_filter_ccf(1, vtaps);
+	d_filters[1][i] = new kernel::fir_filter_ccf(1, vtaps);
+	d_diff_filters[1][i] = new kernel::fir_filter_ccf(1, vtaps);
       }
 
       // Now, actually set the filters' taps
       std::vector<float> dtaps;
       create_diff_taps(taps, dtaps);
-      set_taps(taps, d_taps, d_filters);
-      set_taps(dtaps, d_dtaps, d_diff_filters);
+      set_taps(taps, d_taps, d_filters[0]);
+      set_taps(dtaps, d_dtaps, d_diff_filters[0]);
+      set_taps(taps, d_taps, d_filters[1]);
+      set_taps(dtaps, d_dtaps, d_diff_filters[1]);
 
       set_relative_rate((float)d_osps/(float)d_sps);
     }
@@ -114,8 +120,10 @@ namespace gr {
     pfb_clock_sync_ccf_impl::~pfb_clock_sync_ccf_impl()
     {
       for(int i = 0; i < d_nfilters; i++) {
-	delete d_filters[i];
-	delete d_diff_filters[i];
+	delete d_filters[0][i];
+	delete d_diff_filters[0][i];
+	delete d_filters[1][i];
+	delete d_diff_filters[1][i];
       }
     }
 
@@ -391,14 +399,19 @@ namespace gr {
 					  gr_vector_const_void_star &input_items,
 					  gr_vector_void_star &output_items)
     {
-      gr_complex *in = (gr_complex *) input_items[0];
-      gr_complex *out = (gr_complex *) output_items[0];
+      gr_complex *in[2], *out[2];
+      in[0] = (gr_complex *) input_items[0];
+      out[0] = (gr_complex *) output_items[0];
 
       float *err = NULL, *outrate = NULL, *outk = NULL;
       if(output_items.size() == 4) {
 	err = (float *) output_items[1];
 	outrate = (float*)output_items[2];
 	outk = (float*)output_items[3];
+      } else if(output_items.size() == 5) {
+	err = (float *) output_items[2];
+	outrate = (float*)output_items[3];
+	outk = (float*)output_items[4];
       }
 
       if(d_updated) {
@@ -443,11 +456,13 @@ namespace gr {
 	    count -= 1;
 	  }
 
-	  out[i+d_out_idx] = d_filters[d_filtnum]->filter(&in[count+d_out_idx]);
+	  if(input_items.size() == 1) {
+	    out[0][i+d_out_idx] = d_filters[0][d_filtnum]->filter(&in[0][count+d_out_idx]);
+	  }
 	  d_k = d_k + d_rate_i + d_rate_f; // update phase
 	  d_out_idx++;
 
-	  if(output_items.size() == 4) {
+	  if(output_items.size() == 4 || output_items.size() == 5) {
 	    err[i] = d_error;
 	    outrate[i] = d_rate_f;
 	    outk[i] = d_k;
@@ -465,10 +480,13 @@ namespace gr {
 	d_out_idx = 0;
 
 	// Update the phase and rate estimates for this symbol
-	gr_complex diff = d_diff_filters[d_filtnum]->filter(&in[count]);
-	error_r = out[i].real() * diff.real();
-	error_i = out[i].imag() * diff.imag();
-	d_error = (error_i + error_r) / 2.0;       // average error from I&Q channel
+	if(input_items.size() == 1) {
+	  gr_complex diff;
+	  diff = d_diff_filters[0][d_filtnum]->filter(&in[0][count]);
+	  error_r = out[0][i].real() * diff.real();
+	  error_i = out[0][i].imag() * diff.imag();
+	  d_error = (error_i + error_r) / 2.0;       // average error from I&Q channel
+	}
 
         // Run the control loop to update the current phase (k) and
         // tracking rate estimates based on the error value

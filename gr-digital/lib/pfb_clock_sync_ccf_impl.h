@@ -43,8 +43,8 @@ namespace gr {
 
       int                                  d_nfilters;
       int                                  d_taps_per_filter;
-      std::vector<kernel::fir_filter_ccf*> d_filters;
-      std::vector<kernel::fir_filter_ccf*> d_diff_filters;
+      std::vector<kernel::fir_filter_ccf*> d_filters[2];
+      std::vector<kernel::fir_filter_ccf*> d_diff_filters[2];
       std::vector< std::vector<float> >    d_taps;
       std::vector< std::vector<float> >    d_dtaps;
 
