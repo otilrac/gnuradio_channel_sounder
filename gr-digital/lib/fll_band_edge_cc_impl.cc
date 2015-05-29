@@ -51,8 +51,7 @@ namespace gr {
 				   filter_size, bandwidth));
     }
 
-    // FIXME?
-    static int ios[] = {sizeof(gr_complex), sizeof(float), sizeof(float), sizeof(float)};
+    static int ios[] = {sizeof(gr_complex), sizeof(gr_complex), sizeof(float), sizeof(float), sizeof(float)};
     static std::vector<int> iosig(ios, ios+sizeof(ios)/sizeof(int));
     fll_band_edge_cc_impl::fll_band_edge_cc_impl(float samps_per_sym, float rolloff,
 						 int filter_size, float bandwidth)
