@@ -77,9 +77,10 @@ class example_timing(gr.top_block):
             self.vsnk_rat = blocks.vector_sink_f()
             self.vsnk_phs = blocks.vector_sink_f()
 
-            self.connect((self.clk,1), self.vsnk_err)
-            self.connect((self.clk,2), self.vsnk_rat)
-            self.connect((self.clk,3), self.vsnk_phs)
+            self.connect((self.clk,1), blocks.null_sink (gr.sizeof_gr_complex))
+            self.connect((self.clk,2), self.vsnk_err)
+            self.connect((self.clk,3), self.vsnk_rat)
+            self.connect((self.clk,4), self.vsnk_phs)
 
         else: # mode == 1
             mu = 0.5
