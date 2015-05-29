@@ -63,9 +63,10 @@ class example_fll(gr.top_block):
 
         self.connect(self.src, self.rrc, self.chn, self.fll, self.vsnk_fll)
         self.connect(self.rrc, self.vsnk_src)
-        self.connect((self.fll,1), self.vsnk_frq)
-        self.connect((self.fll,2), self.vsnk_phs)
-        self.connect((self.fll,3), self.vsnk_err)
+        self.connect((self.fll,1), blocks.null_sink (gr.sizeof_gr_complex))
+        self.connect((self.fll,2), self.vsnk_frq)
+        self.connect((self.fll,3), self.vsnk_phs)
+        self.connect((self.fll,4), self.vsnk_err)
 
 def main():
     parser = OptionParser(option_class=eng_option, conflict_handler="resolve")
