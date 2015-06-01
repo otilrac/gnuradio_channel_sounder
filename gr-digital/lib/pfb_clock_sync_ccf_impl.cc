@@ -402,6 +402,8 @@ namespace gr {
       gr_complex *in[2], *out[2];
       in[0] = (gr_complex *) input_items[0];
       out[0] = (gr_complex *) output_items[0];
+      in[1] = (gr_complex *) input_items[1];
+      out[1] = (gr_complex *) output_items[1];
 
       float *err = NULL, *outrate = NULL, *outk = NULL;
       if(output_items.size() == 4) {
