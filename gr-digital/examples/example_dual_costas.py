@@ -47,21 +47,33 @@ class example_costas(gr.top_block):
         rrc_taps = filter.firdes.root_raised_cosine(
             sps, sps, 1.0, rolloff, ntaps)
 
-        data = 2.0*scipy.random.randint(0, 2, N) - 1.0
-        data = scipy.exp(1j*poffset) * data
+        data0 = (2.0*scipy.random.randint(0, 2, N) - 1.0) + 1j*(2.0*scipy.random.randint(0, 2, N) - 1.0)
+        data0 = scipy.exp(1j*poffset) * data0
+        data1 = (2.0*scipy.random.randint(0, 2, N) - 1.0) + 1j*(2.0*scipy.random.randint(0, 2, N) - 1.0)
+        data1 = scipy.exp(1j*poffset) * data1
 
-        self.src = blocks.vector_source_c(data.tolist(), False)
-        self.rrc = filter.interp_fir_filter_ccf(sps, rrc_taps)
-        self.chn = channels.channel_model(noise, foffset, toffset)
-        self.cst = digital.costas_loop_cc(bw, 2)
+        # MIMO channels
+        data01 = data0 + 1j*data1
+        data10 = data1 + 1j*data0
 
-        self.vsnk_src = blocks.vector_sink_c()
-        self.vsnk_cst = blocks.vector_sink_c()
+        self.src0 = blocks.vector_source_c(data01.tolist(), False)
+        self.rrc0 = filter.interp_fir_filter_ccf(sps, rrc_taps)
+        self.chn0 = channels.channel_model(noise, foffset, toffset)
+        self.src1 = blocks.vector_source_c(data10.tolist(), False)
+        self.rrc1 = filter.interp_fir_filter_ccf(sps, rrc_taps)
+        self.chn1 = channels.channel_model(noise, foffset, toffset)
+        self.cst = digital.costas_loop_cc(bw, 4)
+
+        self.vsnk_src0 = blocks.vector_sink_c()
+        self.vsnk_cst0 = blocks.vector_sink_c()
+        self.vsnk_src1 = blocks.vector_sink_c()
+        self.vsnk_cst1 = blocks.vector_sink_c()
         self.vsnk_frq = blocks.vector_sink_f()
 
-        self.connect(self.src, self.rrc, self.chn, self.cst, self.vsnk_cst)
-        self.connect(self.rrc, self.vsnk_src)
-        self.connect((self.cst,1), blocks.null_sink(gr.sizeof_gr_complex))
+        self.connect(self.src0, self.rrc0, self.chn0, (self.cst,0), self.vsnk_cst0)
+        self.connect(self.rrc0, self.vsnk_src0)
+        self.connect(self.src1, self.rrc1, self.chn1, (self.cst,1), self.vsnk_cst1)
+        self.connect(self.rrc1, self.vsnk_src1)
         self.connect((self.cst,2), self.vsnk_frq)
 
 def main():
@@ -95,13 +107,13 @@ def main():
                          options.foffset, options.toffset, options.poffset)
     put.run()
 
-    data_src = scipy.array(put.vsnk_src.data())
+    data_src0 = scipy.array(put.vsnk_src0.data())
 
     # Convert the FLL's LO frequency from rads/sec to Hz
     data_frq = scipy.array(put.vsnk_frq.data()) / (2.0*scipy.pi)
 
     # adjust this to align with the data.
-    data_cst = scipy.array(3*[0,]+list(put.vsnk_cst.data()))
+    data_cst0 = scipy.array(3*[0,]+list(put.vsnk_cst0.data()))
 
     # Plot the Costas loop's LO frequency
     f1 = pylab.figure(1, figsize=(12,10), facecolor='w')
@@ -113,8 +125,8 @@ def main():
 
     # Plot the IQ symbols
     s3 = f1.add_subplot(2,2,2)
-    s3.plot(data_src.real, data_src.imag, "o")
-    s3.plot(data_cst.real, data_cst.imag, "rx")
+    s3.plot(data_src0.real, data_src0.imag, "o")
+    s3.plot(data_cst0.real, data_cst0.imag, "rx")
     s3.set_title("IQ")
     s3.set_xlabel("Real part")
     s3.set_ylabel("Imag part")
@@ -124,8 +136,8 @@ def main():
     # Plot the symbols in time
     s4 = f1.add_subplot(2,2,3)
     s4.set_position([0.125, 0.05, 0.775, 0.4])
-    s4.plot(data_src.real, "o-")
-    s4.plot(data_cst.real, "rx-")
+    s4.plot(data_src0.real, "o-")
+    s4.plot(data_cst0.real, "rx-")
     s4.set_title("Symbols")
     s4.set_xlabel("Samples")
     s4.set_ylabel("Real Part of Signals")

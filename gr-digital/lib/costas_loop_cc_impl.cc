@@ -43,8 +43,8 @@ namespace gr {
 
     costas_loop_cc_impl::costas_loop_cc_impl(float loop_bw, int order, bool use_snr)
       : sync_block("costas_loop_cc",
-                   io_signature::make(1, 1, sizeof(gr_complex)),
-                   io_signature::make2(1, 2, sizeof(gr_complex), sizeof(float))),
+                   io_signature::make(1, 2, sizeof(gr_complex)),
+                   io_signature::make3(1, 3, sizeof(gr_complex), sizeof(gr_complex), sizeof(float))),
 	blocks::control_loop(loop_bw, 1.0, -1.0),
 	d_order(order), d_error(0), d_noise(1.0), d_phase_detector(NULL)
     {
@@ -178,11 +178,17 @@ namespace gr {
 			      gr_vector_const_void_star &input_items,
 			      gr_vector_void_star &output_items)
     {
-      const gr_complex *iptr = (gr_complex *) input_items[0];
-      gr_complex *optr = (gr_complex *) output_items[0];
-      float *foptr = (float *) output_items[1];
+      const gr_complex *iptr[2];
+      gr_complex *optr[2];
+      iptr[0] = (gr_complex *) input_items[0];
+      optr[0] = (gr_complex *) output_items[0];
+      if (input_items.size() == 2) {
+	iptr[1] = (gr_complex *) input_items[1];
+	optr[1] = (gr_complex *) output_items[1];
+      }
+      float *foptr = (float *) output_items[2];
 
-      bool write_foptr = output_items.size() >= 2;
+      bool write_foptr = output_items.size() >= 3;
 
       gr_complex nco_out;
 
@@ -201,9 +207,14 @@ namespace gr {
           }
 
           nco_out = gr_expj(-d_phase);
-          optr[i] = iptr[i] * nco_out;
+          optr[0][i] = iptr[0][i] * nco_out;
 
-          d_error = (*this.*d_phase_detector)(optr[i]);
+	  if (input_items.size() == 2) {
+	    optr[1][i] = iptr[1][i] * nco_out;
+	    d_error = ((*this.*d_phase_detector)(optr[0][i])+(*this.*d_phase_detector)(optr[1][i]))/2;
+	  } else {
+	    d_error = (*this.*d_phase_detector)(optr[0][i]);
+	  }
           d_error = gr::branchless_clip(d_error, 1.0);
 
           advance_loop(d_error);
@@ -223,9 +234,14 @@ namespace gr {
           }
 
           nco_out = gr_expj(-d_phase);
-          optr[i] = iptr[i] * nco_out;
+          optr[0][i] = iptr[0][i] * nco_out;
 
-          d_error = (*this.*d_phase_detector)(optr[i]);
+	  if (input_items.size() == 2) {
+	    optr[1][i] = iptr[1][i] * nco_out;
+	    d_error = ((*this.*d_phase_detector)(optr[0][i])+(*this.*d_phase_detector)(optr[1][i]))/2;
+	  } else {
+	    d_error = (*this.*d_phase_detector)(optr[0][i]);
+	  }
           d_error = gr::branchless_clip(d_error, 1.0);
 
           advance_loop(d_error);
